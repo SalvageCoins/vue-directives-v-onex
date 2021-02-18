@@ -1,0 +1,11 @@
+# Dependency directories
+node_modules/
+
+# build result
+dist
+
+# idea
+.idea
+
+# Output of 'npm pack'
+*.tgz
