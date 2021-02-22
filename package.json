@@ -1,13 +1,13 @@
 {
   "name": "v-onex",
-  "version": "1.0.1",
+  "version": "1.0.5",
   "description": "v-on directive extend",
   "main": "dist/bundle.esm.js",
   "browser": "dist/bundle.umd.js",
   "module": "dist/bundle.esm.js",
   "scripts": {
     "build": "rollup -c",
-    "publish": "npm publish",
+    "publish": "npm publish --access public",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

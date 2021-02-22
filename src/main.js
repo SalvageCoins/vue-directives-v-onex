@@ -26,7 +26,9 @@ function makeDirectiveParams(binding, ctx = {}) {
     const { handlerName, options, args } = value;
     if (enhanceTypeof(ctx[handlerName]) === 'function') {
       directiveParams.handler = ctx[handlerName];
-      directiveParams.handlerArgs = Array.isArray(args) ? args : [args];
+      if (args !== null && args !== undefined) {
+        directiveParams.handlerArgs = Array.isArray(args) ? args : [args];
+      }
     } else {
       console.warn(`method【${handlerName}】is not define`);
     }
@@ -40,40 +42,60 @@ function makeDirectiveParams(binding, ctx = {}) {
 function bindNativeEvent(el, binding, vnode) {
   const directiveParams = makeDirectiveParams(binding, vnode.context);
   const {
-    handler, handlerArgs, eventName, modifiers, options,
+    handler, eventName, modifiers, options,
   } = directiveParams;
+  let { handlerArgs } = directiveParams;
   if (!eventName || !isSupportEvent(eventName, el) || !handler) return;
-  function handleEvent(e) {
+  function beforeExecuteHandler(e) {
     if (modifiers.stop) {
       e.stopPropagation();
     }
     if (modifiers.prevent) {
       e.preventDefault();
     }
+  }
+  function handleEvent(e) {
+    handlerArgs = handlerArgs.length ? handlerArgs : [e];
     if (!modifiers.self) {
       handler.call(vnode.context, ...handlerArgs);
     } else if (e.target === el) {
       handler.call(vnode.context, ...handlerArgs);
     }
   }
-  let wrappedHandler = handleEvent;
+  let wrappedHandler = function (e) {
+    beforeExecuteHandler(e);
+    handleEvent(e);
+  };
   if (modifiers.debounce || modifiers.throttle) {
-    const { wait = 200, leading = false, trailing = true } = options;
+    const { wait = 400, leading = false, trailing = true } = options;
     if (modifiers.debounce) {
-      wrappedHandler = debounce(handleEvent, wait, { leading, trailing }); // leading 是否延迟开始前调用, trailing 是否在延迟结束后调用
+      const debounceHandler = debounce(handleEvent, wait, { leading, trailing }); // leading 是否延迟开始前调用, trailing 是否在延迟结束后调用
+      wrappedHandler = function (e) {
+        beforeExecuteHandler(e);
+        debounceHandler(e);
+      };
     } else if (modifiers.throttle) {
-      wrappedHandler = throttle(handleEvent, wait);
+      const throttleHandler = throttle(handleEvent, wait);
+      wrappedHandler = function (e) {
+        beforeExecuteHandler(e);
+        throttleHandler(e);
+      };
     }
   }
   if (modifiers.once) {
     wrappedHandler = function (e) {
+      beforeExecuteHandler(e);
       handleEvent(e);
-      el.removeEventListener(eventName, wrappedHandler);
+      // eslint-disable-next-line no-param-reassign
+      el[`on${eventName}`] = null;
+      // el.removeEventListener(eventName, wrappedHandler);
     };
   }
-  el.addEventListener(eventName, wrappedHandler, supportsPassive
-    ? { capture: modifiers.capture, passive: modifiers.passive }
-    : modifiers.capture);
+  // eslint-disable-next-line no-param-reassign
+  el[`on${eventName}`] = wrappedHandler;
+  // el.addEventListener(eventName, wrappedHandler, supportsPassive
+  //   ? { capture: modifiers.capture, passive: modifiers.passive }
+  //   : modifiers.capture);
 }
 
 function bindEvent(el, binding, vnode) {
